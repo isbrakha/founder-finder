@@ -3,11 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 
-console.log('API Key:', process.env.PHANTOMBUSTER_API_KEY);
-console.log('Agent ID:', process.env.PHANTOM_AGENT_ID);
-console.log('LinkedIn Session Cookie:', process.env.LINKEDIN_SESSION_COOKIE);
-
-
 const app = express();
 app.use(cors({
     origin: 'http://localhost:3000',  // Adjust this to match the URL of your client application if needed
@@ -17,37 +12,59 @@ app.use(express.json());
 const API_BASE_URL = "https://api.phantombuster.com/api/v2";
 
 app.post('/api/search', async (req, res) => {
+    // console.log('Request Headers:', req.headers);
+    // console.log('Request Body:', req.body);
+
     const { companyName } = req.body;
     const companyUrl = `https://www.linkedin.com/company/${companyName}/`;
 
     try {
         const results = await launchPhantomAndGetResults(companyUrl);
-        res.json(results);  // You might need to adjust how you process and send results based on the actual data structure returned.
+        res.json(results);
     } catch (error) {
         console.error('Error during Phantom operation:', error);
         res.status(500).send('Failed to execute search');
     }
 });
 
+app.post('/webhook', (req, res) => {
+    try {
+        // Parse the JSON string 
+        let results = JSON.parse(req.body.resultObject);
+
+        // Iterate over the array and log each element
+        results.forEach(element => {
+            console.log(`${element.name}: ${element.job}`);
+        });
+
+        res.status(200).send('Data received');
+    } catch (error) {
+        console.error('Failed to parse JSON or process data:', error);
+        res.status(500).send('Failed to parse request body');
+    }
+});
 async function launchPhantomAndGetResults(companyUrl) {
     try {
         const response = await axios.post(`${API_BASE_URL}/agents/launch`, {
-            id: process.env.PHANTOM_AGENT_ID,  // Ensure your agent ID is correctly set in your environment variables
+            id: process.env.PHANTOM_AGENT_ID,
             argument: {
-                sessionCookie: process.env.LINKEDIN_SESSION_COOKIE,  // Ensure your session cookie is correctly set in your environment variables
-                companyUrl: companyUrl
+                sessionCookie: process.env.LINKEDIN_SESSION_COOKIE,
+                spreadsheetUrl: companyUrl,
+                numberOfResultsPerCompany: 1000,
+                numberOfCompaniesPerLaunch: 1,
+                positionFilter:"founder, co-founder"
             }
         }, {
             headers: {
                 'Content-Type': 'application/json',
-                'X-Phantombuster-Key': process.env.PHANTOMBUSTER_API_KEY  // Ensure your API key is correctly set in your environment variables
+                'X-Phantombuster-Key': process.env.PHANTOMBUSTER_API_KEY
             }
         });
-        console.log("Response Data ", response.data)
+        console.log("Response Data: ", response.data);
         return response.data;
     } catch (error) {
         console.error("Failed to launch or get results from Phantom:", error);
-        throw error;  // Rethrow the error for further handling
+        throw error;
     }
 }
 
