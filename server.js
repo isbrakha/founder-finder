@@ -25,7 +25,7 @@ app.post('/api/search', async (req, res) => {
         res.json(results);
     } catch (error) {
         console.error('Error during Phantom operation:', error);
-        res.status(500).send('Failed to execute search');
+        res.status(500).send('Failed to exute search');
     }
 });
 
